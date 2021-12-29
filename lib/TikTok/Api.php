@@ -378,14 +378,14 @@ if (!\class_exists('\Sovit\TikTok\Api')) {
             if (empty($username)) {
                 throw new \Exception("Invalid Username");
             }
-            $cacheKey = 'user-' . $username;
+            $cacheKey = 'user-'.$username;
             if ($this->cacheEnabled) {
                 if ($this->cacheEngine->get($cacheKey)) {
                     return $this->cacheEngine->get($cacheKey);
                 }
             }
             $username = urlencode($username);
-            $result = $this->remote_call("https://www.tiktok.com/@{$username}?lang=en", false);
+            $result   = $this->remote_call("https://www.tiktok.com/@{$username}?lang=en", false);
             if (preg_match('/<script id="__NEXT_DATA__"([^>]+)>([^<]+)<\/script>/', $result, $matches)) {
                 $result = json_decode($matches[2], false);
                 if (isset($result->props->pageProps->userInfo)) {
@@ -393,9 +393,23 @@ if (!\class_exists('\Sovit\TikTok\Api')) {
                     if ($this->cacheEnabled) {
                         $this->cacheEngine->set($cacheKey, $result, $this->_config['cache-timeout']);
                     }
+
+                    return $result;
+                }
+            } elseif (preg_match('/<script id="sigi-persisted-data">window\[\'SIGI_STATE\'\]=([^<]+);window\[\'SIGI_RETRY\'\]=/', $result, $matches)) {
+                $result = json_decode($matches[1], false);
+                if (isset($result->UserModule->users->{$username})) {
+                    $result = $result->UserModule->users->{$username};
+                    if ($this->cacheEnabled) {
+                        $user       = new \stdClass();
+                        $user->user = $result;
+                        $this->cacheEngine->set($cacheKey, $user, $this->_config['cache-timeout']);
+                    }
+
                     return $result;
                 }
             }
+
             return $this->failure();
         }
         /**
